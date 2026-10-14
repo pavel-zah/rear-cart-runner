@@ -55,7 +55,8 @@ const OIL_BAR_H = 10;
 const OIL_BAR_Y = 138;
 
 // Форсаж: красное небо и разгон после 60 секунд
-const OVERDRIVE_AT = 20;
+// Форсаж: красное небо и разгон после 5 монет
+const OVERDRIVE_COINS = 5;
 const OVERDRIVE_MULT = 1.35;
 const OVERDRIVE_SPAWN = 0.7;
 const OVERDRIVE_FADE = 5;
@@ -394,7 +395,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private isOverdrive(): boolean {
-    return this.elapsed >= OVERDRIVE_AT;
+    return this.coins >= OVERDRIVE_COINS;
   }
 
   private speedMult(): number {
@@ -727,7 +728,7 @@ export class GameScene extends Phaser.Scene {
       const to = -t;
       return to <= NIGHT_WARN ? { mode: 'warn', left: Math.ceil(to) } : { mode: 'day', left: 0 };
     }
-    const period = this.elapsed >= OVERDRIVE_AT ? NIGHT_EVERY_OD : NIGHT_EVERY;
+    const period = this.isOverdrive() ? NIGHT_EVERY_OD : NIGHT_EVERY;
     const cyc = t % period;
     if (cyc < NIGHT_LEN) return { mode: 'night', left: Math.ceil(NIGHT_LEN - cyc) };
     const to = period - cyc;
