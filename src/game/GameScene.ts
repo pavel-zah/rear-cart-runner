@@ -7,15 +7,15 @@ const HORIZON_Y = 180;
 const ROAD_BOT_Y = 640;
 const ROAD_TOP_W = 220;
 const ROAD_BOT_W = 760;
-const SPAWN_EVERY = 0.75;
-const SPAWN_MIN = 0.42;
-const COIN_Z = 0.42;
-const TREE_Z = 0.38;
+const SPAWN_EVERY = 0.9;
+const SPAWN_MIN = 0.5;
+const COIN_Z = 0.34;
+const TREE_Z = 0.32;
 const ACCEL_STEP = 0.008;
 const ACCEL_EVERY = 10;
 const HIT_X = 30;
 const HIT_SHRINK = 0.7;
-const COINS_TO_WIN = 10;
+const COINS_TO_WIN = 20;
 const LIVES = 3;
 const TIME_LIMIT = 75;
 const INVULN = 1.0;
@@ -39,6 +39,26 @@ const SPAWN_X = 0.85;
 const COIN_P = 0.42;
 const DECOY_UPTO = 0.5;
 const DECOY_COLOR = 0xfb9236;
+
+// Масло и сердечки (вторая половина заезда)
+const EXTRA_FROM = 30;
+const OIL_P = 0.08;
+const HEART_P = 0.05;
+const OIL_W = 44;
+const OIL_H = 14;
+const REVERSE_TIME = 3;
+const OIL_BAR_W = 200;
+const OIL_BAR_H = 10;
+const OIL_BAR_Y = 138;
+
+// Форсаж: красное небо и разгон после 60 секунд
+const OVERDRIVE_AT = 60;
+const OVERDRIVE_MULT = 1.35;
+const OVERDRIVE_SPAWN = 0.7;
+const OVERDRIVE_FADE = 5;
+const NIGHT_EVERY_OD = 12;
+const SKY_RED_BANDS = [0x2b0a12, 0x3d0e18, 0x521220, 0x671826, 0x7c1e2a, 0x93262f];
+const SUN_RED = 0xef4444;
 
 // Мимик: монета-оборотень
 const MIMIC_CHANCE = 0.3;
@@ -98,7 +118,7 @@ const DEPTH_FINAL = 102;
 // Рекорд и звук
 const BEST_KEY = 'rear-runner-best';
 
-type TrafficKind = 'coin' | 'tree' | 'decoy';
+type TrafficKind = 'coin' | 'tree' | 'decoy' | 'oil' | 'heart';
 
 interface TrafficItem {
   kind: TrafficKind;
@@ -106,7 +126,7 @@ interface TrafficItem {
   z: number;
   halfH: number;
   mimic: boolean;
-  view: Phaser.GameObjects.Arc | Phaser.GameObjects.Container;
+  view: Phaser.GameObjects.Arc | Phaser.GameObjects.Container | Phaser.GameObjects.Ellipse;
   shadow: Phaser.GameObjects.Ellipse;
 }
 
@@ -187,6 +207,29 @@ function sfxNight(): void {
   beep(98, 0.5, 'sine', 0.07);
 }
 
+function sfxHeart(): void {
+  beep(1046, 0.1, 'sine', 0.05);
+  beep(1568, 0.14, 'sine', 0.05, 0.08);
+}
+
+function sfxSkid(): void {
+  beep(600, 0.12, 'sawtooth', 0.06);
+  beep(320, 0.2, 'sawtooth', 0.06, 0.1);
+}
+
+function lerpColor(a: number, b: number, t: number): number {
+  const ar = (a >> 16) & 255;
+  const ag = (a >> 8) & 255;
+  const ab = a & 255;
+  const br = (b >> 16) & 255;
+  const bg = (b >> 8) & 255;
+  const bb = b & 255;
+  const r = Math.round(ar + (br - ar) * t);
+  const g = Math.round(ag + (bg - ag) * t);
+  const bl = Math.round(ab + (bb - ab) * t);
+  return (r << 16) | (g << 8) | bl;
+}
+
 /**
  * «Тележка сзади»: rear-view runner, gray-box.
  * Дорога-трапеция, объекты едут с горизонта на камеру с ростом.
@@ -216,6 +259,9 @@ export class GameScene extends Phaser.Scene {
   private best: Best = { coins: 0, winTime: null };
 
   private repelTimer = 0;
+  private reverseTimer = 0;
+  private overdriveBlend = 0;
+  private skyGraphics!: Phaser.GameObjects.Graphics;
   private nightAlpha = 0;
   private wasNight = false;
   private overlay!: Phaser.GameObjects.Rectangle;
@@ -229,12 +275,15 @@ export class GameScene extends Phaser.Scene {
   private hintText!: Phaser.GameObjects.Text;
   private pauseText!: Phaser.GameObjects.Text;
   private repelText!: Phaser.GameObjects.Text;
+  private oilText!: Phaser.GameObjects.Text;
+  private oilBar!: Phaser.GameObjects.Graphics;
   private nightText!: Phaser.GameObjects.Text;
   private lastCoins = -1;
   private lastLives = -1;
   private lastTime = -1;
   private lastRecord = '';
   private lastRepel = -2;
+  private lastOil = -2;
   private lastNightKey = '';
 
   constructor() {
@@ -258,8 +307,11 @@ export class GameScene extends Phaser.Scene {
     this.lastTime = -1;
     this.lastRecord = '';
     this.lastRepel = -2;
+    this.lastOil = -2;
     this.lastNightKey = '';
     this.repelTimer = 0;
+    this.reverseTimer = 0;
+    this.overdriveBlend = 0;
     this.nightAlpha = 0;
     this.wasNight = false;
     this.best = this.loadBest();
@@ -301,10 +353,16 @@ export class GameScene extends Phaser.Scene {
     this.elapsed += dt;
     if (this.invuln > 0) this.invuln -= dt;
     if (this.repelTimer > 0) this.repelTimer -= dt;
+    if (this.reverseTimer > 0) this.reverseTimer -= dt;
+    if (this.isOverdrive() && this.overdriveBlend < 1) {
+      this.overdriveBlend = Math.min(1, this.overdriveBlend + dt / OVERDRIVE_FADE);
+      this.redrawSky(this.overdriveBlend);
+    }
 
     this.movePlayer(dt);
     this.spawnTimer += dt;
-    const interval = Phaser.Math.Linear(SPAWN_EVERY, SPAWN_MIN, this.elapsed / TIME_LIMIT);
+    let interval = Phaser.Math.Linear(SPAWN_EVERY, SPAWN_MIN, this.elapsed / TIME_LIMIT);
+    if (this.isOverdrive()) interval *= OVERDRIVE_SPAWN;
     if (this.spawnTimer >= interval) {
       this.spawnTimer = 0;
       this.spawnTraffic();
@@ -332,26 +390,17 @@ export class GameScene extends Phaser.Scene {
     return ACCEL_STEP * Math.floor(this.elapsed / ACCEL_EVERY);
   }
 
+  private isOverdrive(): boolean {
+    return this.elapsed >= OVERDRIVE_AT;
+  }
+
+  private speedMult(): number {
+    return this.isOverdrive() ? OVERDRIVE_MULT : 1;
+  }
+
   private createSky(): void {
-    const g = this.add.graphics();
-    const bandH = HORIZON_Y / SKY_BANDS.length;
-    SKY_BANDS.forEach((color, i) => {
-      g.fillStyle(color, 1);
-      g.fillRect(0, i * bandH, this.scale.width, bandH + 1);
-    });
-    // Солнце с мягким ореолом.
-    g.fillStyle(0xfde68a, 0.25);
-    g.fillCircle(SUN_X, SUN_Y, SUN_R * 2);
-    g.fillStyle(0xfde68a, 1);
-    g.fillCircle(SUN_X, SUN_Y, SUN_R);
-    // Дальние горы двумя рядами.
-    g.fillStyle(0x24344d, 1);
-    g.fillTriangle(60, HORIZON_Y, 220, 96, 380, HORIZON_Y);
-    g.fillTriangle(330, HORIZON_Y, 520, 78, 710, HORIZON_Y);
-    g.fillTriangle(660, HORIZON_Y, 830, 104, 1000, HORIZON_Y);
-    g.fillStyle(0x1a2438, 1);
-    g.fillTriangle(-40, HORIZON_Y, 120, 128, 280, HORIZON_Y);
-    g.fillTriangle(560, HORIZON_Y, 700, 122, 840, HORIZON_Y);
+    this.skyGraphics = this.add.graphics();
+    this.redrawSky(0);
     // Облака: по 2 прямоугольника, едут медленно.
     this.clouds = CLOUDS.map((c) => {
       const main = this.add.rectangle(0, 0, c.w, c.h, 0xe2e8f0).setAlpha(0.75);
@@ -368,6 +417,30 @@ export class GameScene extends Phaser.Scene {
       this.add.rectangle(SCREEN_CX - off, y, BUSH_W, BUSH_H, color);
       this.add.rectangle(SCREEN_CX + off, y, BUSH_W, BUSH_H, color);
     });
+  }
+
+  private redrawSky(t: number): void {
+    const g = this.skyGraphics;
+    g.clear();
+    const bandH = HORIZON_Y / SKY_BANDS.length;
+    SKY_BANDS.forEach((color, i) => {
+      g.fillStyle(lerpColor(color, SKY_RED_BANDS[i], t), 1);
+      g.fillRect(0, i * bandH, this.scale.width, bandH + 1);
+    });
+    // Солнце с мягким ореолом (в форсаже краснеет).
+    const sun = lerpColor(0xfde68a, SUN_RED, t);
+    g.fillStyle(sun, 0.25);
+    g.fillCircle(SUN_X, SUN_Y, SUN_R * 2);
+    g.fillStyle(sun, 1);
+    g.fillCircle(SUN_X, SUN_Y, SUN_R);
+    // Дальние горы двумя рядами.
+    g.fillStyle(0x24344d, 1);
+    g.fillTriangle(60, HORIZON_Y, 220, 96, 380, HORIZON_Y);
+    g.fillTriangle(330, HORIZON_Y, 520, 78, 710, HORIZON_Y);
+    g.fillTriangle(660, HORIZON_Y, 830, 104, 1000, HORIZON_Y);
+    g.fillStyle(0x1a2438, 1);
+    g.fillTriangle(-40, HORIZON_Y, 120, 128, 280, HORIZON_Y);
+    g.fillTriangle(560, HORIZON_Y, 700, 122, 840, HORIZON_Y);
   }
 
   private updateSky(dt: number): void {
@@ -399,7 +472,7 @@ export class GameScene extends Phaser.Scene {
 
   private updateDashes(dt: number): void {
     // Скорость пунктира = средняя скорость трафика: ощущение скорости честное.
-    const dashSpeed = (COIN_Z + TREE_Z) / 2 + this.trafficBonus();
+    const dashSpeed = ((COIN_Z + TREE_Z) / 2 + this.trafficBonus()) * this.speedMult();
     this.dashPhase = (this.dashPhase + dt * dashSpeed) % 1;
     const g = this.dashGraphics;
     g.clear();
@@ -433,6 +506,7 @@ export class GameScene extends Phaser.Scene {
     if (this.cursors.left.isDown || this.keyA.isDown) dir -= 1;
     if (this.cursors.right.isDown || this.keyD.isDown) dir += 1;
     if (dir !== 0 && this.hintText.visible) this.hintText.setVisible(false);
+    if (this.reverseTimer > 0) dir = -dir;
     this.playerX += dir * PLAYER_X_SPEED * dt;
 
     const zAtPlayer = (PLAYER_Y - HORIZON_Y) / (ROAD_BOT_Y - HORIZON_Y);
@@ -464,21 +538,27 @@ export class GameScene extends Phaser.Scene {
     if (this.traffic.length >= MAX_OBJECTS) return;
     const r = Math.random();
     let kind: TrafficKind = 'tree';
-    if (r < COIN_P) kind = 'coin';
+    if (this.elapsed >= EXTRA_FROM && r < OIL_P) kind = 'oil';
+    else if (this.elapsed >= EXTRA_FROM && r < OIL_P + HEART_P) kind = 'heart';
+    else if (r < COIN_P) kind = 'coin';
     else if (r < DECOY_UPTO) kind = 'decoy';
     const mimic = kind === 'coin' && Math.random() < MIMIC_CHANCE;
     const x = Phaser.Math.FloatBetween(-SPAWN_X, SPAWN_X);
     const z = 0;
     const p = this.project(x, z);
-    const halfH = kind === 'tree' ? TREE_H / 2 : COIN_R;
-    const shadowW = kind === 'tree' ? TREE_W + 10 : COIN_R * 2;
+    const halfH = kind === 'tree' ? TREE_H / 2 : kind === 'oil' ? OIL_H / 2 : COIN_R;
+    const shadowW = kind === 'tree' ? TREE_W + 10 : kind === 'oil' ? OIL_W + 8 : COIN_R * 2;
     const shadow = this.createShadow(p.x, p.y + halfH * p.s, shadowW);
     shadow.setScale(p.s);
-    let view: Phaser.GameObjects.Arc | Phaser.GameObjects.Container;
+    let view: Phaser.GameObjects.Arc | Phaser.GameObjects.Container | Phaser.GameObjects.Ellipse;
     if (kind === 'tree') {
       view = this.createTreeView(p.x, p.y);
+    } else if (kind === 'oil') {
+      view = this.add.ellipse(p.x, p.y, OIL_W, OIL_H, 0x1e293b);
+      view.setDepth(DEPTH_ACTOR);
     } else {
-      view = this.add.circle(p.x, p.y, COIN_R, kind === 'decoy' ? DECOY_COLOR : 0xfacc15);
+      const color = kind === 'decoy' ? DECOY_COLOR : kind === 'heart' ? 0xf472b6 : 0xfacc15;
+      view = this.add.circle(p.x, p.y, COIN_R, color);
       view.setDepth(DEPTH_ACTOR);
     }
     view.setScale(p.s);
@@ -495,7 +575,8 @@ export class GameScene extends Phaser.Scene {
     }
     for (let i = this.traffic.length - 1; i >= 0; i -= 1) {
       const item = this.traffic[i];
-      const speed = (item.kind === 'coin' || item.kind === 'decoy' ? COIN_Z : TREE_Z) + bonus;
+      const roadBase = item.kind === 'tree' ? TREE_Z : item.kind === 'oil' ? (COIN_Z + TREE_Z) / 2 : COIN_Z;
+      const speed = (roadBase + bonus) * this.speedMult();
       item.z += speed * dt;
       if (item.z > REMOVE_Z) {
         item.view.destroy();
@@ -507,12 +588,12 @@ export class GameScene extends Phaser.Scene {
         this.revealMimic(item);
         continue;
       }
-      if (this.repelTimer > 0 && item.kind !== 'tree') {
+      if (this.repelTimer > 0 && item.kind !== 'tree' && item.kind !== 'oil') {
         const away = item.x === playerWorldX ? (item.x >= 0 ? 1 : -1) : Math.sign(item.x - playerWorldX);
         item.x = Phaser.Math.Clamp(item.x + away * REPEL_X * dt, -REPEL_EDGE, REPEL_EDGE);
       }
       const p = this.project(item.x, item.z);
-      if (item.kind === 'tree') {
+      if (item.kind === 'tree' || item.kind === 'oil') {
         item.view.setScale(p.s);
       } else {
         // Пульсация по X — дешёвая иллюзия вращения монеты.
@@ -576,6 +657,14 @@ export class GameScene extends Phaser.Scene {
         this.repelTimer = REPEL_TIME;
         sfxTrap();
         this.showFloatText(hitX, hitY, 'Ловушка!', '#fb9236');
+      } else if (item.kind === 'heart') {
+        if (this.lives < LIVES) this.lives += 1;
+        sfxHeart();
+        this.showFloatText(hitX, hitY, '+❤', '#f472b6');
+      } else if (item.kind === 'oil') {
+        this.reverseTimer = REVERSE_TIME;
+        sfxSkid();
+        this.showFloatText(hitX, hitY, 'Занос!', '#38bdf8');
       } else {
         if (this.invuln > 0) continue;
         this.lives -= 1;
@@ -629,9 +718,10 @@ export class GameScene extends Phaser.Scene {
       const to = -t;
       return to <= NIGHT_WARN ? { mode: 'warn', left: Math.ceil(to) } : { mode: 'day', left: 0 };
     }
-    const cyc = t % NIGHT_EVERY;
+    const period = this.elapsed >= OVERDRIVE_AT ? NIGHT_EVERY_OD : NIGHT_EVERY;
+    const cyc = t % period;
     if (cyc < NIGHT_LEN) return { mode: 'night', left: Math.ceil(NIGHT_LEN - cyc) };
-    const to = NIGHT_EVERY - cyc;
+    const to = period - cyc;
     return to <= NIGHT_WARN ? { mode: 'warn', left: Math.ceil(to) } : { mode: 'day', left: 0 };
   }
 
@@ -682,6 +772,12 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5, 0)
       .setDepth(DEPTH_HUD)
       .setVisible(false);
+    this.oilText = this.add
+      .text(SCREEN_CX, 116, '', { ...style, fontSize: '16px', color: '#38bdf8' })
+      .setOrigin(0.5, 0)
+      .setDepth(DEPTH_HUD)
+      .setVisible(false);
+    this.oilBar = this.add.graphics().setDepth(DEPTH_HUD);
     this.recordText = this.add
       .text(this.scale.width - 16, 612, '', { ...style, fontSize: '14px', color: '#94a3b8' })
       .setOrigin(1, 0)
@@ -690,7 +786,7 @@ export class GameScene extends Phaser.Scene {
       .text(
         SCREEN_CX,
         612,
-        '←/→ или A/D — рулить. Собери 10 монет, объезжай деревья. M — звук.',
+        '←/→ или A/D — рулить. Собери 20 монет, объезжай деревья. M — звук.',
         { ...style, fontSize: '16px', color: '#cbd5e1' },
       )
       .setOrigin(0.5, 0)
@@ -746,6 +842,24 @@ export class GameScene extends Phaser.Scene {
         this.repelText.setVisible(true);
         this.repelText.setText(`Монеты разбегаются: ${rs}с`);
       }
+    }
+    const os = this.reverseTimer > 0 ? Math.ceil(this.reverseTimer) : -1;
+    if (os !== this.lastOil) {
+      this.lastOil = os;
+      if (os < 0) {
+        this.oilText.setVisible(false);
+      } else {
+        this.oilText.setVisible(true);
+        this.oilText.setText('Занос: руль наоборот!');
+      }
+    }
+    this.oilBar.clear();
+    if (this.reverseTimer > 0) {
+      const frac = this.reverseTimer / REVERSE_TIME;
+      this.oilBar.fillStyle(0x334155, 1);
+      this.oilBar.fillRect(SCREEN_CX - OIL_BAR_W / 2, OIL_BAR_Y, OIL_BAR_W, OIL_BAR_H);
+      this.oilBar.fillStyle(0x38bdf8, 1);
+      this.oilBar.fillRect(SCREEN_CX - OIL_BAR_W / 2, OIL_BAR_Y, OIL_BAR_W * frac, OIL_BAR_H);
     }
     const ns = this.nightState();
     const nightKey = `${ns.mode}${ns.left}`;
