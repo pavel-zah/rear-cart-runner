@@ -55,7 +55,7 @@ const OIL_BAR_H = 10;
 const OIL_BAR_Y = 138;
 
 // Форсаж: красное небо и разгон после 60 секунд
-const OVERDRIVE_AT = 60;
+const OVERDRIVE_AT = 20;
 const OVERDRIVE_MULT = 1.35;
 const OVERDRIVE_SPAWN = 0.7;
 const OVERDRIVE_FADE = 5;
