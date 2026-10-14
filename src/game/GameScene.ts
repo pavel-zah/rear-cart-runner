@@ -212,6 +212,7 @@ export class GameScene extends Phaser.Scene {
   private lives = LIVES;
   private invuln = 0;
   private finished = false;
+  private paused = false;
   private best: Best = { coins: 0, winTime: null };
 
   private repelTimer = 0;
@@ -226,6 +227,7 @@ export class GameScene extends Phaser.Scene {
   private progressText!: Phaser.GameObjects.Text;
   private recordText!: Phaser.GameObjects.Text;
   private hintText!: Phaser.GameObjects.Text;
+  private pauseText!: Phaser.GameObjects.Text;
   private repelText!: Phaser.GameObjects.Text;
   private nightText!: Phaser.GameObjects.Text;
   private lastCoins = -1;
@@ -250,6 +252,7 @@ export class GameScene extends Phaser.Scene {
     this.lives = LIVES;
     this.invuln = 0;
     this.finished = false;
+    this.paused = false;
     this.lastCoins = -1;
     this.lastLives = -1;
     this.lastTime = -1;
@@ -283,11 +286,15 @@ export class GameScene extends Phaser.Scene {
     kb.on('keydown-M', () => {
       muted = !muted;
     });
+    kb.off('keydown-P');
+    kb.on('keydown-P', () => {
+      this.togglePause();
+    });
     this.input.once('pointerdown', ensureAudio);
   }
 
   update(_time: number, delta: number): void {
-    if (this.finished) return;
+    if (this.finished || this.paused) return;
     const dt = Math.min(delta / 1000, 0.05);
 
     if (!audioReady) ensureAudio();
@@ -688,7 +695,24 @@ export class GameScene extends Phaser.Scene {
       )
       .setOrigin(0.5, 0)
       .setDepth(DEPTH_HUD);
+    this.pauseText = this.add
+      .text(SCREEN_CX, 300, 'Пауза — жми P', {
+        fontFamily: 'system-ui, sans-serif',
+        fontSize: '48px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5)
+      .setDepth(DEPTH_FINAL)
+      .setVisible(false);
     this.updateHud();
+  }
+
+  private togglePause(): void {
+    if (this.finished) return;
+    this.paused = !this.paused;
+    this.pauseText.setVisible(this.paused);
+    if (this.paused) this.tweens.pauseAll();
+    else this.tweens.resumeAll();
   }
 
   private updateHud(): void {
