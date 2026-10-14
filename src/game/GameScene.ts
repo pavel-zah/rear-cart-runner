@@ -43,7 +43,7 @@ import {
   MIMIC_Z,
   NIGHT_ALPHA,
   NIGHT_EVERY,
-  NIGHT_EVERY_OD,
+  NIGHT_EVERY_P2,
   NIGHT_FIRST,
   NIGHT_LEN,
   NIGHT_WARN,
@@ -55,8 +55,8 @@ import {
   OIL_W,
   OVERDRIVE_COINS,
   OVERDRIVE_FADE,
-  OVERDRIVE_MULT,
-  OVERDRIVE_SPAWN,
+  OVERDRIVE_SPEED_MULT,
+  OVERDRIVE_SPAWN_MULT,
   PLAYER_H,
   PLAYER_W,
   PLAYER_X_SPEED,
@@ -260,7 +260,7 @@ export class GameScene extends Phaser.Scene {
     this.movePlayer(dt);
     this.spawnTimer += dt;
     let interval = Phaser.Math.Linear(SPAWN_EVERY, SPAWN_MIN, this.elapsed / TIME_LIMIT);
-    if (this.isOverdrive()) interval *= OVERDRIVE_SPAWN;
+    if (this.isOverdrive()) interval *= OVERDRIVE_SPAWN_MULT;
     if (this.spawnTimer >= interval) {
       this.spawnTimer = 0;
       this.spawnTraffic();
@@ -293,7 +293,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private speedMult(): number {
-    return this.isOverdrive() ? OVERDRIVE_MULT : 1;
+    return this.isOverdrive() ? OVERDRIVE_SPEED_MULT : 1;
   }
 
   private createSky(): void {
@@ -613,7 +613,7 @@ export class GameScene extends Phaser.Scene {
       const to = -t;
       return to <= NIGHT_WARN ? { mode: 'warn', left: Math.ceil(to) } : { mode: 'day', left: 0 };
     }
-    const period = this.isOverdrive() ? NIGHT_EVERY_OD : NIGHT_EVERY;
+    const period = this.isOverdrive() ? NIGHT_EVERY_P2 : NIGHT_EVERY;
     const cyc = t % period;
     if (cyc < NIGHT_LEN) return { mode: 'night', left: Math.ceil(NIGHT_LEN - cyc) };
     const to = period - cyc;
