@@ -1,126 +1,117 @@
 import Phaser from 'phaser';
-
-// --- Параметры игры (все числа — здесь, в логике магических чисел нет) ---
-const PLAYER_X_SPEED = 420;
-const PLAYER_Y = 560;
-const HORIZON_Y = 180;
-const ROAD_BOT_Y = 640;
-const ROAD_TOP_W = 220;
-const ROAD_BOT_W = 760;
-const SPAWN_EVERY = 0.9;
-const SPAWN_MIN = 0.5;
-const COIN_Z = 0.34;
-const TREE_Z = 0.32;
-const ACCEL_STEP = 0.008;
-const ACCEL_EVERY = 10;
-const HIT_TREE_X = 24;
-const HIT_PICKUP_X = 34;
-const HIT_SHRINK = 0.7;
-const HIT_TREE_SHRINK = 0.55;
-const DANGER_Z = 0.55;
-const COINS_TO_WIN = 20;
-const LIVES = 3;
-const TIME_LIMIT = 75;
-const INVULN = 1.0;
-
-// Размеры сущностей и сцены
-const SCREEN_CX = 480;
-const PLAYER_W = 64;
-const PLAYER_H = 44;
-const WHEEL_S = 14;
-const TAIL_W = 10;
-const TAIL_H = 8;
-const COIN_R = 12;
-const TREE_W = 44;
-const TREE_H = 70;
-const TRUNK_W = 10;
-const TRUNK_H = 14;
-const SHADOW_H = 10;
-const MAX_OBJECTS = 25;
-const REMOVE_Z = 1.1;
-const SPAWN_X = 0.85;
-const COIN_P = 0.42;
-const DECOY_UPTO = 0.5;
-const DECOY_COLOR = 0xfb9236;
-
-// Масло и сердечки (вторая половина заезда)
-const EXTRA_FROM = 30;
-const OIL_P = 0.08;
-const HEART_P = 0.05;
-const OIL_W = 44;
-const OIL_H = 14;
-const REVERSE_TIME = 3;
-const OIL_BAR_W = 200;
-const OIL_BAR_H = 10;
-const OIL_BAR_Y = 138;
-
-// Форсаж: красное небо и разгон после 60 секунд
-// Форсаж: красное небо и разгон после 5 монет
-const OVERDRIVE_COINS = 5;
-const OVERDRIVE_MULT = 1.35;
-const OVERDRIVE_SPAWN = 0.7;
-const OVERDRIVE_FADE = 5;
-const NIGHT_EVERY_OD = 12;
-const SKY_RED_BANDS = [0x2b0a12, 0x3d0e18, 0x521220, 0x671826, 0x7c1e2a, 0x93262f];
-const SUN_RED = 0xef4444;
-
-// Мимик: монета-оборотень
-const MIMIC_CHANCE = 0.3;
-const MIMIC_Z = 0.45;
-
-// Отталкиватель: монета-ловушка
-const REPEL_TIME = 5;
-const REPEL_X = 0.5;
-const REPEL_EDGE = 0.95;
-
-// Ночь и фары
-const NIGHT_FIRST = 20;
-const NIGHT_EVERY = 20;
-const NIGHT_LEN = 8;
-const NIGHT_WARN = 3;
-const NIGHT_ALPHA = 1;
-const BEAM_ALPHA = 0.85;
-
-// Разметка дороги
-const DASH_COUNT = 7;
-const DASH_LEN = 0.06;
-const LANE_X = 0.34;
-
-// Небо и обочина (плоская статичная декорация)
-const SKY_BANDS = [0x0b1026, 0x111a33, 0x16233f, 0x1c2f4d, 0x233c5d, 0x2a4a6e];
-const SUN_X = 770;
-const SUN_Y = 64;
-const SUN_R = 26;
-const CLOUDS = [
-  { w: 110, h: 18, x: 120, y: 52, speed: 10 },
-  { w: 150, h: 22, x: 520, y: 96, speed: 14 },
-  { w: 90, h: 14, x: 830, y: 40, speed: 8 },
-] as const;
-const BUSH_ROWS = [250, 350, 460, 570];
-const BUSH_W = 26;
-const BUSH_H = 18;
-
-// Ощущения: наклон, тряска, пульсация
-const TILT_MAX = 0.08;
-const TILT_LERP = 10;
-const SHAKE_MS = 150;
-const SHAKE_FORCE = 0.004;
-const COIN_PULSE = 0.12;
-const COIN_PULSE_SPEED = 7;
-const FLOAT_DIST = PLAYER_H;
-const FLOAT_MS = 650;
-
-// Слои: мир (0) < трафик/игрок (9-10) < ночь (90-91) < HUD (100+)
-const DEPTH_SHADOW = 9;
-const DEPTH_ACTOR = 10;
-const DEPTH_NIGHT = 90;
-const DEPTH_BEAM = 91;
-const DEPTH_HUD = 100;
-const DEPTH_FLOAT = 101;
-const DEPTH_FINAL = 102;
-
-// Рекорд и звук
-const BEST_KEY = 'rear-runner-best';
+import {
+  BEAM_ALPHA,
+  BEST_KEY,
+  BUSH_H,
+  BUSH_ROWS,
+  BUSH_W,
+  CLOUDS,
+  COIN_R,
+  DASH_COUNT,
+  DASH_LEN,
+  DECOY_COLOR,
+  DEPTH_ACTOR,
+  DEPTH_BEAM,
+  DEPTH_FINAL,
+  DEPTH_FLOAT,
+  DEPTH_HUD,
+  DEPTH_NIGHT,
+  DEPTH_SHADOW,
+  FLOAT_DIST,
+  HORIZON_Y,
+  LANE_X,
+  NIGHT_ALPHA,
+  NIGHT_FIRST,
+  NIGHT_LEN,
+  NIGHT_WARN,
+  OIL_BAR_H,
+  OIL_BAR_W,
+  OIL_BAR_Y,
+  OIL_H,
+  OIL_W,
+  PLAYER_H,
+  PLAYER_W,
+  PLAYER_Y,
+  ROAD_BOT_W,
+  ROAD_BOT_Y,
+  ROAD_TOP_W,
+  SCREEN_CX,
+  SHADOW_H,
+  SKY_BANDS,
+  SKY_RED_BANDS,
+  SPAWN_X,
+  SUN_RED,
+  SUN_R,
+  SUN_X,
+  SUN_Y,
+  TAIL_H,
+  TAIL_W,
+  TREE_H,
+  TREE_W,
+  TRUNK_H,
+  TRUNK_W,
+  WHEEL_S,
+} from './constants';
+import {
+  ACCEL_EVERY,
+  ACCEL_STEP,
+  COIN_P,
+  COIN_PULSE,
+  COIN_PULSE_SPEED,
+  COIN_Z,
+  COINS_TO_WIN,
+  DANGER_Z,
+  DECOY_UPTO,
+  EXTRA_FROM,
+  FLOAT_MS,
+  HEART_P,
+  HIT_PICKUP_X,
+  HIT_SHRINK,
+  HIT_TREE_SHRINK,
+  HIT_TREE_X,
+  INVULN,
+  LIVES,
+  MAX_OBJECTS,
+  MIMIC_CHANCE,
+  MIMIC_Z,
+  NIGHT_EVERY,
+  NIGHT_EVERY_P2,
+  OIL_P,
+  OVERDRIVE_COINS,
+  OVERDRIVE_FADE,
+  OVERDRIVE_SPAWN_MULT,
+  OVERDRIVE_SPEED_MULT,
+  PLAYER_X_SPEED,
+  REMOVE_Z,
+  REPEL_EDGE,
+  REPEL_TIME,
+  REPEL_X,
+  REVERSE_TIME,
+  SHAKE_FORCE,
+  SHAKE_MS,
+  SPAWN_EVERY,
+  SPAWN_MIN,
+  TILT_LERP,
+  TILT_MAX,
+  TIME_LIMIT,
+  TREE_Z,
+} from './tuning';
+import {
+  ensureAudio,
+  isAudioReady,
+  isMuted,
+  sfxCoin,
+  sfxHeart,
+  sfxHit,
+  sfxLose,
+  sfxMimic,
+  sfxNight,
+  sfxSkid,
+  sfxTrap,
+  sfxWin,
+  toggleMuted,
+} from './audio';
+import { lerpColor, project } from './project';
 
 type TrafficKind = 'coin' | 'tree' | 'decoy' | 'oil' | 'heart';
 
@@ -137,101 +128,6 @@ interface TrafficItem {
 interface Best {
   coins: number;
   winTime: number | null;
-}
-
-// --- Крошечный звук без библиотек: осциллятор + огибающая ---
-let audioCtx: AudioContext | null = null;
-let audioReady = false;
-let muted = false;
-
-function ensureAudio(): void {
-  if (audioReady) return;
-  try {
-    if (!audioCtx) audioCtx = new AudioContext();
-    if (audioCtx.state === 'suspended') {
-      void audioCtx.resume();
-      return;
-    }
-    audioReady = true;
-  } catch {
-    // Без звука — игра работает как раньше.
-  }
-}
-
-function beep(freq: number, dur: number, type: OscillatorType, vol: number, delay = 0): void {
-  if (muted || !audioCtx || !audioReady) return;
-  try {
-    const t0 = audioCtx.currentTime + delay;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, t0);
-    gain.gain.setValueAtTime(vol, t0);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.start(t0);
-    osc.stop(t0 + dur + 0.02);
-  } catch {
-    // Игнорируем сбои звука.
-  }
-}
-
-function sfxCoin(): void {
-  beep(880, 0.09, 'square', 0.05);
-  beep(1318, 0.12, 'square', 0.035, 0.06);
-}
-
-function sfxHit(): void {
-  beep(120, 0.25, 'sawtooth', 0.08);
-}
-
-function sfxWin(): void {
-  beep(523, 0.14, 'square', 0.05);
-  beep(659, 0.14, 'square', 0.05, 0.12);
-  beep(784, 0.22, 'square', 0.05, 0.24);
-}
-
-function sfxLose(): void {
-  beep(330, 0.18, 'sawtooth', 0.06);
-  beep(196, 0.3, 'sawtooth', 0.06, 0.16);
-}
-
-function sfxTrap(): void {
-  beep(300, 0.12, 'square', 0.06);
-  beep(210, 0.18, 'square', 0.06, 0.1);
-}
-
-function sfxMimic(): void {
-  beep(500, 0.08, 'sawtooth', 0.05);
-  beep(750, 0.1, 'sawtooth', 0.05, 0.07);
-}
-
-function sfxNight(): void {
-  beep(98, 0.5, 'sine', 0.07);
-}
-
-function sfxHeart(): void {
-  beep(1046, 0.1, 'sine', 0.05);
-  beep(1568, 0.14, 'sine', 0.05, 0.08);
-}
-
-function sfxSkid(): void {
-  beep(600, 0.12, 'sawtooth', 0.06);
-  beep(320, 0.2, 'sawtooth', 0.06, 0.1);
-}
-
-function lerpColor(a: number, b: number, t: number): number {
-  const ar = (a >> 16) & 255;
-  const ag = (a >> 8) & 255;
-  const ab = a & 255;
-  const br = (b >> 16) & 255;
-  const bg = (b >> 8) & 255;
-  const bb = b & 255;
-  const r = Math.round(ar + (br - ar) * t);
-  const g = Math.round(ag + (bg - ag) * t);
-  const bl = Math.round(ab + (bb - ab) * t);
-  return (r << 16) | (g << 8) | bl;
 }
 
 /**
@@ -340,7 +236,7 @@ export class GameScene extends Phaser.Scene {
     });
     kb.off('keydown-M');
     kb.on('keydown-M', () => {
-      muted = !muted;
+      toggleMuted();
     });
     kb.off('keydown-P');
     kb.on('keydown-P', () => {
@@ -353,7 +249,7 @@ export class GameScene extends Phaser.Scene {
     if (this.finished || this.paused) return;
     const dt = Math.min(delta / 1000, 0.05);
 
-    if (!audioReady) ensureAudio();
+    if (!isAudioReady()) ensureAudio();
     this.elapsed += dt;
     if (this.invuln > 0) this.invuln -= dt;
     if (this.repelTimer > 0) this.repelTimer -= dt;
@@ -366,7 +262,7 @@ export class GameScene extends Phaser.Scene {
     this.movePlayer(dt);
     this.spawnTimer += dt;
     let interval = Phaser.Math.Linear(SPAWN_EVERY, SPAWN_MIN, this.elapsed / TIME_LIMIT);
-    if (this.isOverdrive()) interval *= OVERDRIVE_SPAWN;
+    if (this.isOverdrive()) interval *= OVERDRIVE_SPAWN_MULT;
     if (this.spawnTimer >= interval) {
       this.spawnTimer = 0;
       this.spawnTraffic();
@@ -399,7 +295,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private speedMult(): number {
-    return this.isOverdrive() ? OVERDRIVE_MULT : 1;
+    return this.isOverdrive() ? OVERDRIVE_SPEED_MULT : 1;
   }
 
   private createSky(): void {
@@ -484,8 +380,8 @@ export class GameScene extends Phaser.Scene {
       for (let i = 0; i < DASH_COUNT; i += 1) {
         const z0 = (i / DASH_COUNT + this.dashPhase) % 1;
         const z1 = Math.min(z0 + DASH_LEN, 1);
-        const p0 = this.project(laneX, z0);
-        const p1 = this.project(laneX, z1);
+        const p0 = project(laneX, z0);
+        const p1 = project(laneX, z1);
         g.lineStyle(Phaser.Math.Linear(2, 6, z0), 0xffffff, 0.9);
         g.lineBetween(p0.x, p0.y, p1.x, p1.y);
       }
@@ -549,7 +445,7 @@ export class GameScene extends Phaser.Scene {
     const mimic = kind === 'coin' && Math.random() < MIMIC_CHANCE;
     const x = Phaser.Math.FloatBetween(-SPAWN_X, SPAWN_X);
     const z = 0;
-    const p = this.project(x, z);
+    const p = project(x, z);
     const halfH = kind === 'tree' ? TREE_H / 2 : kind === 'oil' ? OIL_H / 2 : COIN_R;
     const shadowW = kind === 'tree' ? TREE_W + 10 : kind === 'oil' ? OIL_W + 8 : COIN_R * 2;
     const shadow = this.createShadow(p.x, p.y + halfH * p.s, shadowW);
@@ -596,7 +492,7 @@ export class GameScene extends Phaser.Scene {
         const away = item.x === playerWorldX ? (item.x >= 0 ? 1 : -1) : Math.sign(item.x - playerWorldX);
         item.x = Phaser.Math.Clamp(item.x + away * REPEL_X * dt, -REPEL_EDGE, REPEL_EDGE);
       }
-      const p = this.project(item.x, item.z);
+      const p = project(item.x, item.z);
       if (item.kind === 'tree' || item.kind === 'oil') {
         item.view.setScale(p.s);
       } else {
@@ -613,7 +509,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private revealMimic(item: TrafficItem): void {
-    const p = this.project(item.x, item.z);
+    const p = project(item.x, item.z);
     item.view.destroy();
     item.shadow.destroy();
     const view = this.createTreeView(p.x, p.y);
@@ -629,21 +525,12 @@ export class GameScene extends Phaser.Scene {
     this.showFloatText(p.x, p.y - TREE_H / 2, 'Мимик!', '#c084fc');
   }
 
-  private project(x: number, z: number): { x: number; y: number; s: number } {
-    const roadW = Phaser.Math.Linear(ROAD_TOP_W, ROAD_BOT_W, z);
-    return {
-      x: SCREEN_CX + (x * roadW) / 2,
-      y: HORIZON_Y + z * (ROAD_BOT_Y - HORIZON_Y),
-      s: Phaser.Math.Linear(0.3, 1.25, z),
-    };
-  }
-
   private checkHits(): void {
     // Передний край тележки: контакт, когда низ объекта достаёт до верха машины.
     const frontY = PLAYER_Y - PLAYER_H / 2;
     for (let i = this.traffic.length - 1; i >= 0; i -= 1) {
       const item = this.traffic[i];
-      const s = this.project(item.x, item.z).s;
+      const s = project(item.x, item.z).s;
       const isTree = item.kind === 'tree';
       const hitLimit = isTree ? HIT_TREE_X : HIT_PICKUP_X;
       const shrink = isTree ? HIT_TREE_SHRINK : HIT_SHRINK;
@@ -728,7 +615,7 @@ export class GameScene extends Phaser.Scene {
       const to = -t;
       return to <= NIGHT_WARN ? { mode: 'warn', left: Math.ceil(to) } : { mode: 'day', left: 0 };
     }
-    const period = this.isOverdrive() ? NIGHT_EVERY_OD : NIGHT_EVERY;
+    const period = this.isOverdrive() ? NIGHT_EVERY_P2 : NIGHT_EVERY;
     const cyc = t % period;
     if (cyc < NIGHT_LEN) return { mode: 'night', left: Math.ceil(NIGHT_LEN - cyc) };
     const to = period - cyc;
@@ -891,7 +778,7 @@ export class GameScene extends Phaser.Scene {
 
   private recordLine(): string {
     const best = this.best.winTime !== null ? `победа за ${this.best.winTime}с` : `${this.best.coins}/${COINS_TO_WIN}`;
-    return `Рекорд: ${best}${muted ? ' · звук выкл' : ''}`;
+    return `Рекорд: ${best}${isMuted() ? ' · звук выкл' : ''}`;
   }
 
   private loadBest(): Best {
