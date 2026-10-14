@@ -13,8 +13,11 @@ const COIN_Z = 0.34;
 const TREE_Z = 0.32;
 const ACCEL_STEP = 0.008;
 const ACCEL_EVERY = 10;
-const HIT_X = 30;
+const HIT_TREE_X = 24;
+const HIT_PICKUP_X = 34;
 const HIT_SHRINK = 0.7;
+const HIT_TREE_SHRINK = 0.55;
+const DANGER_Z = 0.55;
 const COINS_TO_WIN = 20;
 const LIVES = 3;
 const TIME_LIMIT = 75;
@@ -62,7 +65,7 @@ const SUN_RED = 0xef4444;
 
 // Мимик: монета-оборотень
 const MIMIC_CHANCE = 0.3;
-const MIMIC_Z = 0.6;
+const MIMIC_Z = 0.45;
 
 // Отталкиватель: монета-ловушка
 const REPEL_TIME = 5;
@@ -602,6 +605,9 @@ export class GameScene extends Phaser.Scene {
       item.view.setPosition(p.x, p.y);
       item.shadow.setPosition(p.x, p.y + item.halfH * p.s);
       item.shadow.setScale(p.s);
+      // Телеграф угрозы: тень дерева краснеет, когда оно вот-вот достанет.
+      const danger = item.kind === 'tree' && item.z >= DANGER_Z && Math.abs(p.x - this.playerX) < HIT_TREE_X;
+      item.shadow.setFillStyle(danger ? 0xef4444 : 0x000000, danger ? 0.5 : 0.3);
     }
   }
 
@@ -637,8 +643,11 @@ export class GameScene extends Phaser.Scene {
     for (let i = this.traffic.length - 1; i >= 0; i -= 1) {
       const item = this.traffic[i];
       const s = this.project(item.x, item.z).s;
-      if (item.view.y + item.halfH * HIT_SHRINK * s < frontY) continue;
-      if (Math.abs(item.view.x - this.playerX) >= HIT_X) continue;
+      const isTree = item.kind === 'tree';
+      const hitLimit = isTree ? HIT_TREE_X : HIT_PICKUP_X;
+      const shrink = isTree ? HIT_TREE_SHRINK : HIT_SHRINK;
+      if (item.view.y + item.halfH * shrink * s < frontY) continue;
+      if (Math.abs(item.view.x - this.playerX) >= hitLimit) continue;
       // Контакт: объект убираем в любом случае, чтобы не было отложенных ударов.
       const hitX = item.view.x;
       const hitY = item.view.y;
