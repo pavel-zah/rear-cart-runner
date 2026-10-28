@@ -6,6 +6,8 @@ export const HORIZON_Y = 180;
 export const ROAD_BOT_Y = 640;
 export const ROAD_TOP_W = 220;
 export const ROAD_BOT_W = 760;
+// Глубина, на которой стоит машина: объект с z > PLAYER_Z уже проехали.
+export const PLAYER_Z = (PLAYER_Y - HORIZON_Y) / (ROAD_BOT_Y - HORIZON_Y);
 
 // Размеры сущностей и сцены
 export const SCREEN_CX = 480;
