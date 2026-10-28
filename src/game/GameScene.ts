@@ -74,9 +74,17 @@ import {
   LIVES,
   MAX_OBJECTS,
   MIMIC_CHANCE,
-  MIMIC_Z,
+  MIMIC_DRIFT,
+  MIMIC_HOP_H,
+  MIMIC_HOP_MS,
+  MIMIC_HOP_Z,
+  MIMIC_Z_GROWTH,
+  MIMIC_Z_MAX,
+  MIMIC_Z_START,
   NIGHT_EVERY,
   NIGHT_EVERY_P2,
+  NIGHT_FADE_IN,
+  NIGHT_FADE_OUT,
   OIL_P,
   OVERDRIVE_COINS,
   OVERDRIVE_FADE,
@@ -122,6 +130,10 @@ interface TrafficItem {
   z: number;
   halfH: number;
   mimic: boolean;
+  /** Только мимик: сторона бокового сноса (±1), 0 — обычная монета. */
+  mimicDir: number;
+  /** Только мимик: секунды до конца подскока, -1 — ещё не прыгал. */
+  hopLeft: number;
   view: Phaser.GameObjects.Arc | Phaser.GameObjects.Container | Phaser.GameObjects.Ellipse;
   shadow: Phaser.GameObjects.Ellipse;
 }
@@ -462,11 +474,22 @@ export class GameScene extends Phaser.Scene {
       view.setDepth(DEPTH_ACTOR);
     }
     view.setScale(p.s);
-    this.traffic.push({ kind, x, z, halfH, mimic, view, shadow });
+    this.traffic.push({
+      kind,
+      x,
+      z,
+      halfH,
+      mimic,
+      mimicDir: mimic ? (Math.random() < 0.5 ? -1 : 1) : 0,
+      hopLeft: -1,
+      view,
+      shadow,
+    });
   }
 
   private updateTraffic(dt: number): void {
     const bonus = this.trafficBonus();
+    const mimicZ = this.mimicRevealZ();
     let playerWorldX = 0;
     if (this.repelTimer > 0) {
       const half = Phaser.Math.Linear(ROAD_TOP_W, ROAD_BOT_W, PLAYER_Z) / 2;
@@ -483,22 +506,26 @@ export class GameScene extends Phaser.Scene {
         this.traffic.splice(i, 1);
         continue;
       }
-      if (item.kind === 'coin' && item.mimic && item.z >= MIMIC_Z) {
+      if (item.kind === 'coin' && item.mimic && item.z >= mimicZ) {
         this.revealMimic(item);
         continue;
       }
       if (this.repelTimer > 0 && item.kind !== 'tree' && item.kind !== 'oil') {
         const away = item.x === playerWorldX ? (item.x >= 0 ? 1 : -1) : Math.sign(item.x - playerWorldX);
         item.x = Phaser.Math.Clamp(item.x + away * REPEL_X * dt, -REPEL_EDGE, REPEL_EDGE);
+      } else if (item.mimicDir !== 0) {
+        // Мимик «живой»: сносит вбок, обычная монета летит строго по прямой.
+        item.x = Phaser.Math.Clamp(item.x + item.mimicDir * MIMIC_DRIFT * dt, -SPAWN_X, SPAWN_X);
       }
       const p = project(item.x, item.z);
+      const hop = this.mimicHop(item, dt, p.s);
       if (item.kind === 'tree' || item.kind === 'oil') {
         item.view.setScale(p.s);
       } else {
         // Пульсация по X — дешёвая иллюзия вращения монеты.
         item.view.setScale(p.s * (1 + COIN_PULSE * Math.sin(this.elapsed * COIN_PULSE_SPEED + item.x * 4)), p.s);
       }
-      item.view.setPosition(p.x, p.y);
+      item.view.setPosition(p.x, p.y - hop);
       item.shadow.setPosition(p.x, p.y + item.halfH * p.s);
       item.shadow.setScale(p.s);
       // Телеграф угрозы: тень дерева краснеет, когда оно вот-вот достанет.
@@ -511,6 +538,21 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private mimicRevealZ(): number {
+    return Math.min(MIMIC_Z_START + this.elapsed * MIMIC_Z_GROWTH, MIMIC_Z_MAX);
+  }
+
+  /** Один короткий подскок мимика: подсказка «здесь что-то не так», тень остаётся на земле. */
+  private mimicHop(item: TrafficItem, dt: number, s: number): number {
+    const dur = MIMIC_HOP_MS / 1000;
+    if (item.hopLeft < 0 && item.kind === 'coin' && item.mimic && item.z >= MIMIC_HOP_Z) {
+      item.hopLeft = dur;
+    }
+    if (item.hopLeft <= 0) return 0;
+    item.hopLeft = Math.max(item.hopLeft - dt, 0);
+    return Math.sin(Math.PI * (1 - item.hopLeft / dur)) * MIMIC_HOP_H * s;
+  }
+
   private revealMimic(item: TrafficItem): void {
     const p = project(item.x, item.z);
     item.view.destroy();
@@ -521,6 +563,8 @@ export class GameScene extends Phaser.Scene {
     shadow.setScale(p.s);
     item.kind = 'tree';
     item.mimic = false;
+    item.mimicDir = 0;
+    item.hopLeft = 0;
     item.halfH = TREE_H / 2;
     item.view = view;
     item.shadow = shadow;
@@ -607,8 +651,10 @@ export class GameScene extends Phaser.Scene {
 
   private createNight(): void {
     // Тёмная вуаль на весь экран + луч фар с аддитивным блендом (без масок — дешево).
-    this.overlay = this.add.rectangle(SCREEN_CX, 320, this.scale.width, ROAD_BOT_Y, 0x050914, 0);
+    // fillAlpha = 1 обязателен: alpha объекта умножается на него, иначе вуаль не видна вообще.
+    this.overlay = this.add.rectangle(SCREEN_CX, 320, this.scale.width, ROAD_BOT_Y, 0x050914, 1);
     this.overlay.setDepth(DEPTH_NIGHT);
+    this.overlay.setAlpha(0);
     this.beam = this.add.graphics();
     this.beam.setDepth(DEPTH_BEAM);
     this.beam.setBlendMode(Phaser.BlendModes.ADD);
@@ -629,10 +675,14 @@ export class GameScene extends Phaser.Scene {
 
   private updateNight(dt: number): void {
     const ns = this.nightState();
-    const target = ns.mode === 'night' ? NIGHT_ALPHA : 0;
-    this.nightAlpha += (target - this.nightAlpha) * Math.min(dt * 2.5, 1);
-    if (Math.abs(target - this.nightAlpha) < 0.005) this.nightAlpha = target;
-    this.overlay.setAlpha(this.nightAlpha);
+    // nightAlpha — прогресс ночи 0..1: им же разгораются фары.
+    const target = ns.mode === 'night' ? 1 : 0;
+    if (this.nightAlpha < target) {
+      this.nightAlpha = Math.min(target, this.nightAlpha + dt / NIGHT_FADE_IN);
+    } else if (this.nightAlpha > target) {
+      this.nightAlpha = Math.max(target, this.nightAlpha - dt / NIGHT_FADE_OUT);
+    }
+    this.overlay.setAlpha(this.nightAlpha * NIGHT_ALPHA);
     this.beam.clear();
     if (this.nightAlpha > 0.02) {
       const topHalf = ROAD_TOP_W / 2 + 30;
