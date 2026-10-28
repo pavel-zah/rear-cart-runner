@@ -40,7 +40,15 @@ export const REMOVE_Z = 1.1;
 
 // Мимик: монета-оборотень
 export const MIMIC_CHANCE = 0.3;
-export const MIMIC_Z = 0.45;
+// Глубина превращения растёт со временем: рано игрок привыкает, поздно — не расслабляется.
+export const MIMIC_Z_START = 0.32;
+export const MIMIC_Z_GROWTH = 0.0035;
+export const MIMIC_Z_MAX = 0.58;
+// Подсказки «это живое»: лёгкий снос вбок и один короткий подскок.
+export const MIMIC_DRIFT = 0.12;
+export const MIMIC_HOP_Z = 0.2;
+export const MIMIC_HOP_H = 14;
+export const MIMIC_HOP_MS = 260;
 
 // Отталкиватель: монета-ловушка
 export const REPEL_TIME = 5;
@@ -63,3 +71,7 @@ export const COIN_PULSE = 0.12;
 export const COIN_PULSE_SPEED = 7;
 export const FLOAT_MS = 650;
 export const REVERSE_TIME = 3;
+
+// Ночь: плавное наступление, чтобы игрок успел заметить смену света
+export const NIGHT_FADE_IN = 2.5;
+export const NIGHT_FADE_OUT = 1.5;
