@@ -577,8 +577,9 @@ export class GameScene extends Phaser.Scene {
     const frontY = PLAYER_Y - PLAYER_H / 2;
     for (let i = this.traffic.length - 1; i >= 0; i -= 1) {
       const item = this.traffic[i];
-      // Объект уже проехали: он уезжает к камере, но больше не бьёт и не подбирается.
-      if (item.z > PLAYER_Z) continue;
+      // Проеханное дерево/масло/ловушка больше не бьёт «боком»,
+      // а монеты и сердца по старой логике можно забрать и «спиной».
+      if (item.z > PLAYER_Z && item.kind !== 'coin' && item.kind !== 'heart') continue;
       const s = project(item.x, item.z).s;
       const isTree = item.kind === 'tree';
       const hitLimit = isTree ? HIT_TREE_X : HIT_PICKUP_X;
