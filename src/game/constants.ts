@@ -52,7 +52,7 @@ export const LANE_X = 0.34;
 export const NIGHT_FIRST = 20;
 export const NIGHT_LEN = 8;
 export const NIGHT_WARN = 3;
-export const NIGHT_ALPHA = 0.6;
+export const NIGHT_ALPHA = 0.3;
 export const BEAM_ALPHA = 0.85;
 
 // Всплывающий текст и бар заноса
