@@ -32,6 +32,7 @@ import {
   PLAYER_H,
   PLAYER_W,
   PLAYER_Y,
+  PLAYER_Z,
   ROAD_BOT_W,
   ROAD_BOT_Y,
   ROAD_TOP_W,
@@ -409,8 +410,7 @@ export class GameScene extends Phaser.Scene {
     if (this.reverseTimer > 0) dir = -dir;
     this.playerX += dir * PLAYER_X_SPEED * dt;
 
-    const zAtPlayer = (PLAYER_Y - HORIZON_Y) / (ROAD_BOT_Y - HORIZON_Y);
-    const roadW = Phaser.Math.Linear(ROAD_TOP_W, ROAD_BOT_W, zAtPlayer);
+    const roadW = Phaser.Math.Linear(ROAD_TOP_W, ROAD_BOT_W, PLAYER_Z);
     const limit = roadW / 2 - PLAYER_W / 2;
     this.playerX = Phaser.Math.Clamp(this.playerX, SCREEN_CX - limit, SCREEN_CX + limit);
     this.player.x = this.playerX;
@@ -469,8 +469,7 @@ export class GameScene extends Phaser.Scene {
     const bonus = this.trafficBonus();
     let playerWorldX = 0;
     if (this.repelTimer > 0) {
-      const zP = (PLAYER_Y - HORIZON_Y) / (ROAD_BOT_Y - HORIZON_Y);
-      const half = Phaser.Math.Linear(ROAD_TOP_W, ROAD_BOT_W, zP) / 2;
+      const half = Phaser.Math.Linear(ROAD_TOP_W, ROAD_BOT_W, PLAYER_Z) / 2;
       playerWorldX = (this.playerX - SCREEN_CX) / half;
     }
     for (let i = this.traffic.length - 1; i >= 0; i -= 1) {
@@ -503,7 +502,11 @@ export class GameScene extends Phaser.Scene {
       item.shadow.setPosition(p.x, p.y + item.halfH * p.s);
       item.shadow.setScale(p.s);
       // Телеграф угрозы: тень дерева краснеет, когда оно вот-вот достанет.
-      const danger = item.kind === 'tree' && item.z >= DANGER_Z && Math.abs(p.x - this.playerX) < HIT_TREE_X;
+      const danger =
+        item.kind === 'tree' &&
+        item.z >= DANGER_Z &&
+        item.z <= PLAYER_Z &&
+        Math.abs(p.x - this.playerX) < HIT_TREE_X;
       item.shadow.setFillStyle(danger ? 0xef4444 : 0x000000, danger ? 0.5 : 0.3);
     }
   }
@@ -530,6 +533,8 @@ export class GameScene extends Phaser.Scene {
     const frontY = PLAYER_Y - PLAYER_H / 2;
     for (let i = this.traffic.length - 1; i >= 0; i -= 1) {
       const item = this.traffic[i];
+      // Объект уже проехали: он уезжает к камере, но больше не бьёт и не подбирается.
+      if (item.z > PLAYER_Z) continue;
       const s = project(item.x, item.z).s;
       const isTree = item.kind === 'tree';
       const hitLimit = isTree ? HIT_TREE_X : HIT_PICKUP_X;
